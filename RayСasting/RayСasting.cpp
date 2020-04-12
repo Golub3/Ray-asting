@@ -108,9 +108,131 @@ int main() {
                         // В этом цикле рисуется вертикальная полоска
                     }
                 }
+            }
         }
+
+        for (int x = 0; x < nScreenWidth; x++)  // Проходим по всем X
+
+        {
+
+            float fRayAngle = (fPlayerA - fFOV / 2.0f) + ((float)x / (float)nScreenWidth) * fFOV; // Направление луча
+
+
+
+            float fDistanceToWall = 0.0f; // Расстояние до препятствия в направлении fRayAngle
+
+            bool bHitWall = false; // Достигнул ли луч стенку
+
+
+
+            float fEyeX = sinf(fRayAngle); // Координаты единичного вектора fRayAngle
+
+            float fEyeY = cosf(fRayAngle);
+
+
+
+            while (!bHitWall && fDistanceToWall < fDepth) // Пока не столкнулись со стеной
+
+            {											       // Или не вышли за радиус видимости
+
+                fDistanceToWall += 0.1f;
+
+
+
+                int nTestX = (int)(fPlayerX + fEyeX * fDistanceToWall); // Точка на игровом поле
+
+                int nTestY = (int)(fPlayerY + fEyeY * fDistanceToWall); // в которую попал луч
+
+
+
+                if (nTestX < 0 || nTestX >= nMapWidth || nTestY < 0 || nTestY >= nMapHeight)
+
+                { // Если мы вышли за карту, то дальше смотреть нет смысла - фиксируем соударение на расстоянии видимости
+
+                    bHitWall = true;
+
+                    fDistanceToWall = fDepth;
+
+                }
+
+                else if (map[nTestY * nMapWidth + nTestX] == '#')
+
+                { // Если встретили стену, то заканчиваем цикл
+
+                    bHitWall = true;
+
+                }
+
+            }
+
+
+
+            //Вычисляем координаты начала и конца стенки по формулам (1) и (2)
+
+            int nCeiling = (float)(nScreenHeight / 2.0) - nScreenHeight / ((float)fDistanceToWall);
+
+            int nFloor = nScreenHeight - nCeiling;
+
+
+
+            short nShade;
+
+
+
+            if (fDistanceToWall <= fDepth / 3.0f)		nShade = 0x2588; // Если стенка близко, то рисуем 
+
+            else if (fDistanceToWall < fDepth / 2.0f)	nShade = 0x2593; // светлую полоску
+
+            else if (fDistanceToWall < fDepth / 1.5f)	nShade = 0x2592; // Для отдалённых участков 
+
+            else if (fDistanceToWall < fDepth)			nShade = 0x2591; // рисуем более темную
+
+            else										 nShade = ' ';
+
+
+
+            for (int y = 0; y < nScreenHeight; y++)
+
+            {
+
+                if (y <= nCeiling)
+
+                    screen[y * nScreenWidth + x] = ' ';
+
+                else if (y > nCeiling&& y <= nFloor)
+
+                    screen[y * nScreenWidth + x] = nShade;
+
+                else
+
+                {
+
+                    // То же самое с полом - более близкие части рисуем более заметными символами
+
+                    float b = 1.0f - ((float)y - nScreenHeight / 2.0) / ((float)nScreenHeight / 2.0);
+
+                    if (b < 0.25)		nShade = '#';
+
+                    else if (b < 0.5)	nShade = 'x';
+
+                    else if (b < 0.75)	nShade = '~';
+
+                    else if (b < 0.9)	nShade = '-';
+
+                    else				 nShade = ' ';
+
+
+
+                    screen[y * nScreenWidth + x] = nShade;
+
+                }
+
+            }
+
+        }
+
+        return 0;
     }
-    return 0;
 }
 
 
