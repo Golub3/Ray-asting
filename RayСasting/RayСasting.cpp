@@ -228,6 +228,40 @@ int main() {
                 }
 
             }
+            
+            vector <pair <float, float>> p;
+
+
+
+            for (int tx = 0; tx < 2; tx++)
+
+                for (int ty = 0; ty < 2; ty++) // Проходим по всем 4м рёбрам
+
+                {
+
+                    float vx = (float)nTestX + tx - fPlayerX; // Координаты вектора,
+
+                    float vy = (float)nTestY + ty - fPlayerY; // ведущего из наблюдателя в ребро
+
+                    float d = sqrt(vx * vx + vy * vy); // Модуль этого вектора
+
+                    float dot = (fEyeX * vx / d) + (fEyeY * vy / d); // Скалярное произведение (единичных векторов)
+
+                    p.push_back(make_pair(d, dot)); // Сохраняем результат в массив
+
+                }
+
+            // Мы будем выводить два ближайших ребра, поэтому сортируем их по модулю вектора ребра
+
+            sort(p.begin(), p.end(), [](const pair <float, float>& left, const pair <float, float>& right) {return left.first < right.first; });
+
+
+
+            float fBound = 0.005; // Угол, при котором начинаем различать ребро.
+
+            if (acos(p.at(0).second) < fBound) bBoundary = true;
+
+            if (acos(p.at(1).second) < fBound) bBoundary = true;
 
         }
 
