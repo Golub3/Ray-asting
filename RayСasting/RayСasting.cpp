@@ -1,5 +1,11 @@
-﻿using namespace std;
-#include <iostream>
+﻿#include <iostream>
+#include <vector>
+#include <utility>
+#include <algorithm>
+#include <chrono>
+using namespace std;
+
+#include <stdio.h>
 #include <Windows.h>
 
 int nScreenWidth = 120;
@@ -7,11 +13,11 @@ int nScreenHeight = 40;
 int nMapHeight = 16;
 int nMapWidth = 16;
 
-float fPlayerX = 1.0; 
-float fPlayerY = 1.0;
+float fPlayerX = 14.7f;
+float fPlayerY = 5.09f;
 float fPlayerA = 0.0; // Направление игрока
 float fFOV = 3.14159 / 3; // Угол обзора
-float fDepth = 30.0f; // Дистанция обзора
+float fDepth = 16.0f; // Дистанция обзора
 
 int main() {
     // Вывод на экран
@@ -21,27 +27,25 @@ int main() {
     DWORD dwBytesWritten = 0; // Для дебага
 
     wstring map; // Строковый массив
-    map += L"################";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"#..............#";
-    map += L"################";
+	map += L"#########.......";
+	map += L"#...............";
+	map += L"#.......########";
+	map += L"#..............#";
+	map += L"#......##......#";
+	map += L"#......##......#";
+	map += L"#..............#";
+	map += L"###............#";
+	map += L"##.............#";
+	map += L"#......####..###";
+	map += L"#......#.......#";
+	map += L"#......#.......#";
+	map += L"#..............#";
+	map += L"#......#########";
+	map += L"#..............#";
+	map += L"################";
 
-    while (1) // Игровой цикл
-    {
-        auto tp1 = chrono::system_clock::now(); // Переменные для подсчета
-        auto tp2 = chrono::system_clock::now(); // пройденного времени
+    auto tp1 = chrono::system_clock::now(); // Переменные для подсчета
+    auto tp2 = chrono::system_clock::now(); // пройденного времени
 
         while (1) // Игровой цикл
         {
@@ -77,196 +81,112 @@ int main() {
                 }
             }
 
-            for (int x = 0; x < nScreenWidth; x++) // Проходим по всем X
+            for (int x = 0; x < nScreenWidth; x++)  // Проходим по всем X
             {
                 float fRayAngle = (fPlayerA - fFOV / 2.0f) + ((float)x / (float)nScreenWidth) * fFOV; // Направление луча
-                // Находим расстояние до стенки в направлении fRayAngle 
 
                 float fDistanceToWall = 0.0f; // Расстояние до препятствия в направлении fRayAngle
                 bool bHitWall = false; // Достигнул ли луч стенку
+
+                bool bBoundary = false;
 
                 float fEyeX = sinf(fRayAngle); // Координаты единичного вектора fRayAngle
                 float fEyeY = cosf(fRayAngle);
 
                 while (!bHitWall && fDistanceToWall < fDepth) // Пока не столкнулись со стеной
-                {                                           // Или не вышли за радиус видимости
+                {                                                  // Или не вышли за радиус видимости
                     fDistanceToWall += 0.1f;
 
                     int nTestX = (int)(fPlayerX + fEyeX * fDistanceToWall); // Точка на игровом поле
                     int nTestY = (int)(fPlayerY + fEyeY * fDistanceToWall); // в которую попал луч
 
                     if (nTestX < 0 || nTestX >= nMapWidth || nTestY < 0 || nTestY >= nMapHeight)
-                    { // Если мы вышли за зону
+                    { // Если мы вышли за карту, то дальше смотреть нет смысла - фиксируем соударение на расстоянии видимости
                         bHitWall = true;
                         fDistanceToWall = fDepth;
                     }
                     else if (map[nTestY * nMapWidth + nTestX] == '#')
+                    { // Если встретили стену, то заканчиваем цикл
                         bHitWall = true;
 
-                    for (int y = 0; y < nScreenHeight; y++) // При заданном X проходим по всем Y
-                    {
-                        // В этом цикле рисуется вертикальная полоска
+
+                        vector <pair <float, float>> p;
+
+                        for (int tx = 0; tx < 2; tx++)
+
+                            for (int ty = 0; ty < 2; ty++) // Проходим по всем 4м рёбрам
+
+                            {
+
+                                float vx = (float)nTestX + tx - fPlayerX; // Координаты вектора,
+                                float vy = (float)nTestY + ty - fPlayerY; // ведущего из наблюдателя в ребро
+                                float d = sqrt(vx * vx + vy * vy); // Модуль этого вектора
+                                float dot = (fEyeX * vx / d) + (fEyeY * vy / d); // Скалярное произведение (единичных векторов)
+                                p.push_back(make_pair(d, dot)); // Сохраняем результат в массив
+
+                            }
+
+                        // Мы будем выводить два ближайших ребра, поэтому сортируем их по модулю вектора ребра
+
+                        sort(p.begin(), p.end(), [](const pair <float, float>& left, const pair <float, float>& right) {return left.first < right.first; });
+
+
+
+                        float fBound = 0.005; // Угол, при котором начинаем различать ребро.
+
+                        if (acos(p.at(0).second) < fBound) bBoundary = true;
+                        if (acos(p.at(1).second) < fBound) bBoundary = true;
+                        if (acos(p.at(2).second) < fBound) bBoundary = true;
                     }
                 }
-            }
-        }
 
-        for (int x = 0; x < nScreenWidth; x++)  // Проходим по всем X
+                //Вычисляем координаты начала и конца стенки по формулам (1) и (2)
+                int nCeiling = (float)(nScreenHeight / 2.0) - nScreenHeight / ((float)fDistanceToWall);
+                int nFloor = nScreenHeight - nCeiling;
 
-        {
+                short nShade;
 
-            float fRayAngle = (fPlayerA - fFOV / 2.0f) + ((float)x / (float)nScreenWidth) * fFOV; // Направление луча
+                if (fDistanceToWall <= fDepth / 3.0f)        nShade = 0x2588; // Если стенка близко, то рисуем 
+                else if (fDistanceToWall < fDepth / 2.0f)    nShade = 0x2593; // светлую полоску
+                else if (fDistanceToWall < fDepth / 1.5f)    nShade = 0x2592; // Для отдалённых участков 
+                else if (fDistanceToWall < fDepth)           nShade = 0x2591; // рисуем более темную
+                else                                         nShade = ' ';
 
-
-
-            float fDistanceToWall = 0.0f; // Расстояние до препятствия в направлении fRayAngle
-
-            bool bHitWall = false; // Достигнул ли луч стенку
-
-
-
-            float fEyeX = sinf(fRayAngle); // Координаты единичного вектора fRayAngle
-
-            float fEyeY = cosf(fRayAngle);
-
-
-
-            while (!bHitWall && fDistanceToWall < fDepth) // Пока не столкнулись со стеной
-
-            {											       // Или не вышли за радиус видимости
-
-                fDistanceToWall += 0.1f;
-
-
-
-                int nTestX = (int)(fPlayerX + fEyeX * fDistanceToWall); // Точка на игровом поле
-
-                int nTestY = (int)(fPlayerY + fEyeY * fDistanceToWall); // в которую попал луч
-
-
-
-                if (nTestX < 0 || nTestX >= nMapWidth || nTestY < 0 || nTestY >= nMapHeight)
-
-                { // Если мы вышли за карту, то дальше смотреть нет смысла - фиксируем соударение на расстоянии видимости
-
-                    bHitWall = true;
-
-                    fDistanceToWall = fDepth;
-
-                }
-
-                else if (map[nTestY * nMapWidth + nTestX] == '#')
-
-                { // Если встретили стену, то заканчиваем цикл
-
-                    bHitWall = true;
-
-                }
-
-            }
-
-
-
-            //Вычисляем координаты начала и конца стенки по формулам (1) и (2)
-
-            int nCeiling = (float)(nScreenHeight / 2.0) - nScreenHeight / ((float)fDistanceToWall);
-
-            int nFloor = nScreenHeight - nCeiling;
-
-
-
-            short nShade;
-
-
-
-            if (fDistanceToWall <= fDepth / 3.0f)		nShade = 0x2588; // Если стенка близко, то рисуем 
-
-            else if (fDistanceToWall < fDepth / 2.0f)	nShade = 0x2593; // светлую полоску
-
-            else if (fDistanceToWall < fDepth / 1.5f)	nShade = 0x2592; // Для отдалённых участков 
-
-            else if (fDistanceToWall < fDepth)			nShade = 0x2591; // рисуем более темную
-
-            else										 nShade = ' ';
-
-
-
-            for (int y = 0; y < nScreenHeight; y++)
-
-            {
-
-                if (y <= nCeiling)
-
-                    screen[y * nScreenWidth + x] = ' ';
-
-                else if (y > nCeiling&& y <= nFloor)
-
-                    screen[y * nScreenWidth + x] = nShade;
-
-                else
-
+                for (int y = 0; y < nScreenHeight; y++)
                 {
+                    if (y <= nCeiling)
+                        screen[y * nScreenWidth + x] = ' ';
+                    else if (y > nCeiling&& y <= nFloor)
+                        screen[y * nScreenWidth + x] = nShade;
+                    else
+                    {
+                        // То же самое с полом - более близкие части рисуем более заметными символами
+                        float b = 1.0f - ((float)y - nScreenHeight / 2.0) / ((float)nScreenHeight / 2.0);
+                        if (b < 0.25)        nShade = '#';
+                        else if (b < 0.5)    nShade = 'x';
+                        else if (b < 0.75)   nShade = '~';
+                        else if (b < 0.9)    nShade = '-';
+                        else                 nShade = ' ';
 
-                    // То же самое с полом - более близкие части рисуем более заметными символами
-
-                    float b = 1.0f - ((float)y - nScreenHeight / 2.0) / ((float)nScreenHeight / 2.0);
-
-                    if (b < 0.25)		nShade = '#';
-
-                    else if (b < 0.5)	nShade = 'x';
-
-                    else if (b < 0.75)	nShade = '~';
-
-                    else if (b < 0.9)	nShade = '-';
-
-                    else				 nShade = ' ';
-
-
-
-                    screen[y * nScreenWidth + x] = nShade;
+                        screen[y * nScreenWidth + x] = nShade;
+                    }
 
                 }
-
             }
-            
-            vector <pair <float, float>> p;
 
-
-
-            for (int tx = 0; tx < 2; tx++)
-
-                for (int ty = 0; ty < 2; ty++) // Проходим по всем 4м рёбрам
-
+            // Display Map
+            for (int nx = 0; nx < nMapWidth; nx++)
+                for (int ny = 0; ny < nMapWidth; ny++)
                 {
-
-                    float vx = (float)nTestX + tx - fPlayerX; // Координаты вектора,
-
-                    float vy = (float)nTestY + ty - fPlayerY; // ведущего из наблюдателя в ребро
-
-                    float d = sqrt(vx * vx + vy * vy); // Модуль этого вектора
-
-                    float dot = (fEyeX * vx / d) + (fEyeY * vy / d); // Скалярное произведение (единичных векторов)
-
-                    p.push_back(make_pair(d, dot)); // Сохраняем результат в массив
-
+                    screen[(ny + 1) * nScreenWidth + nx] = map[ny * nMapWidth + nx];
                 }
+            screen[((int)fPlayerX + 1) * nScreenWidth + (int)fPlayerY] = 'P';
 
-            // Мы будем выводить два ближайших ребра, поэтому сортируем их по модулю вектора ребра
-
-            sort(p.begin(), p.end(), [](const pair <float, float>& left, const pair <float, float>& right) {return left.first < right.first; });
-
-
-
-            float fBound = 0.005; // Угол, при котором начинаем различать ребро.
-
-            if (acos(p.at(0).second) < fBound) bBoundary = true;
-
-            if (acos(p.at(1).second) < fBound) bBoundary = true;
+            // Display Frame
+            screen[nScreenWidth * nScreenHeight - 1] = '\0';
+            WriteConsoleOutputCharacter(hConsole, screen, nScreenWidth * nScreenHeight, { 0,0 }, &dwBytesWritten);
 
         }
 
-        return 0;
     }
-}
-
 
