@@ -77,7 +77,7 @@ int main()
 			}
 		}
 
-		// Клавишей "E" идём налево
+		// Клавишей "E" идём направо
 		if (GetAsyncKeyState((unsigned short)'E') & 0x8000)
 		{
 			fPlayerX += sinf(fPlayerA + 3.14159f / 2.0f) * fSpeed * fElapsedTime;;
